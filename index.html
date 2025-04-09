@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spill Confidence Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .legend {
+      padding: 6px 8px;
+      background: white;
+      background: rgba(255,255,255,0.8);
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      line-height: 24px;
+    }
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script>
+    // Initialize map
+    var map = L.map('map').setView([29.95, -90.07], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Color function
+    function getColor(confidence) {
+      return confidence >= 95 ? '#d73027' :    // Red for very high confidence
+             confidence >= 85 ? '#fc8d59' :    // Orange for high confidence
+             confidence >= 75 ? '#fee08b' :    // Yellow for medium confidence
+                              '#91bfdb';       // Blue for lower confidence
+    }
+
+    // Add legend
+    var legend = L.control({position: 'bottomright'});
+    legend.onAdd = function(map) {
+      var div = L.DomUtil.create('div', 'legend');
+      var grades = [95, 85, 75, 70];
+      var labels = ['Very High (≥95%)', 'High (85-94%)', 'Medium (75-84%)', 'Low (<75%)'];
+      
+      for (var i = 0; i < grades.length; i++) {
+        div.innerHTML +=
+          '<i style="background:' + getColor(grades[i]) + '"></i> ' +
+          labels[i] + '<br>';
+      }
+      return div;
+    };
+    legend.addTo(map);
+
+    // Load and parse CSV
+    Papa.parse("attached_assets/spill_confidence_scores (3).csv", {
+      download: true,
+      header: true,
+      complete: function(results) {
+        console.log("Data loaded:", results.data);
+        results.data.forEach(point => {
+          if (!point.LATITUDE || !point.LONGITUDE || !point.CONFIDENCE_SCORE) return;
+          
+          let lat = parseFloat(point.LATITUDE);
+          let lon = parseFloat(point.LONGITUDE);
+          let confidence = parseFloat(point.CONFIDENCE_SCORE);
+          let distance = parseFloat(point.DISTANCE_TO_TARGET);
+          
+          L.circleMarker([lat, lon], {
+            radius: 8,
+            fillColor: getColor(confidence),
+            color: '#000',
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8
+          }).addTo(map)
+            .bindPopup(
+              `<b>Confidence Score:</b> ${confidence}%<br>` +
+              `<b>Distance:</b> ${distance.toFixed(2)} units<br>` +
+              `<b>Location:</b> ${lat.toFixed(4)}, ${lon.toFixed(4)}`
+            );
+        });
+      }
+    });
+  </script>
+</body>
+</html>
